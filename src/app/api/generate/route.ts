@@ -71,22 +71,34 @@ function validateInput(
     };
   }
 
-  if (!data.documents || !Array.isArray(data.documents)) {
+  // Accept documents as either an array of strings or an object of booleans
+  let documentsArray: string[];
+  if (Array.isArray(data.documents)) {
+    documentsArray = data.documents;
+  } else if (data.documents && typeof data.documents === "object") {
+    // Convert { privacyPolicy: true, termsOfService: false, ... } to ["privacyPolicy"]
+    documentsArray = Object.entries(data.documents as Record<string, boolean>)
+      .filter(([, v]) => v === true)
+      .map(([k]) => k);
+  } else {
     return {
       valid: false,
-      error: "Documents must be an array of document types to generate.",
+      error: "Documents must be an array of document types or an object.",
     };
   }
 
-  if (data.documents.length === 0) {
+  if (documentsArray.length === 0) {
     return {
       valid: false,
       error: "At least one document type must be selected.",
     };
   }
 
+  // Replace data.documents with the normalized array for downstream use
+  data.documents = documentsArray;
+
   const validDocumentTypes = Object.keys(DOCUMENT_GENERATORS);
-  const invalidTypes = (data.documents as string[]).filter(
+  const invalidTypes = (documentsArray as string[]).filter(
     (doc) => !validDocumentTypes.includes(doc)
   );
   if (invalidTypes.length > 0) {
@@ -102,18 +114,18 @@ function validateInput(
     websiteUrl: (data.websiteUrl as string).trim(),
     businessType: typeof data.businessType === "string" ? data.businessType : "general",
     country: typeof data.country === "string" ? data.country : "US",
-    documents: data.documents as string[],
+    documents: documentsArray,
     dataCollected: Array.isArray(data.dataCollected) ? data.dataCollected : [],
     collectionMethods: Array.isArray(data.collectionMethods)
       ? data.collectionMethods
       : [],
-    sharesWithThirdParties: Boolean(data.sharesWithThirdParties),
+    sharesWithThirdParties: data.sharesWithThirdParties === "yes" || data.sharesWithThirdParties === true,
     analytics: typeof data.analytics === "string" ? data.analytics : "none",
-    sendsMarketingEmails: Boolean(data.sendsMarketingEmails),
-    childrenUnder13: Boolean(data.childrenUnder13),
-    hasUserAccounts: Boolean(data.hasUserAccounts),
-    sellsProducts: Boolean(data.sellsProducts),
-    hasUserContent: Boolean(data.hasUserContent),
+    sendsMarketingEmails: data.sendsMarketingEmails === "yes" || data.marketingEmails === "yes" || data.sendsMarketingEmails === true,
+    childrenUnder13: data.childrenUnder13 === "yes" || data.childrenUnder13 === true,
+    hasUserAccounts: data.hasUserAccounts === "yes" || data.userAccounts === "yes" || data.hasUserAccounts === true,
+    sellsProducts: data.sellsProducts === "yes" || data.sellsProducts === true,
+    hasUserContent: data.hasUserContent === "yes" || data.userGeneratedContent === "yes" || data.hasUserContent === true,
     jurisdiction: typeof data.jurisdiction === "string" ? data.jurisdiction : "US",
   };
 

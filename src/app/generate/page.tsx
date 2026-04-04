@@ -213,19 +213,53 @@ export default function GeneratePage() {
     setCurrentStepIndex((i) => Math.max(i - 1, 0));
   }
 
+  const hasPaidDocuments =
+    formData.documents.termsOfService ||
+    formData.documents.cookiePolicy ||
+    formData.documents.disclaimer ||
+    formData.documents.refundPolicy;
+
   async function handleGenerate() {
+    // If user selected paid documents, redirect to Stripe checkout
+    if (hasPaidDocuments) {
+      setIsGenerating(true);
+      try {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: "oneTime" }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          // Save form data to localStorage so we can restore it after payment
+          localStorage.setItem("policyforge_formData", JSON.stringify(formData));
+          window.location.href = data.url;
+          return;
+        }
+      } catch {
+        // If checkout fails, show error
+        alert("Unable to connect to payment system. Please try again.");
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // Free tier: only generate Privacy Policy
     setIsGenerating(true);
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          documents: { ...formData.documents, termsOfService: false, cookiePolicy: false, disclaimer: false, refundPolicy: false },
+        }),
       });
       if (res.ok) {
         const data = await res.json();
         setGeneratedDocs(data.documents);
       } else {
-        // Fallback: generate placeholder docs client-side
         generatePlaceholder();
       }
     } catch {
@@ -237,34 +271,11 @@ export default function GeneratePage() {
 
   function generatePlaceholder() {
     const docs: GeneratedDocument[] = [];
+    // Free tier: only Privacy Policy
     if (formData.documents.privacyPolicy) {
       docs.push({
         title: "Privacy Policy",
         content: buildPrivacyPolicy(formData),
-      });
-    }
-    if (formData.documents.termsOfService) {
-      docs.push({
-        title: "Terms of Service",
-        content: buildTermsOfService(formData),
-      });
-    }
-    if (formData.documents.cookiePolicy) {
-      docs.push({
-        title: "Cookie Policy",
-        content: buildCookiePolicy(formData),
-      });
-    }
-    if (formData.documents.disclaimer) {
-      docs.push({
-        title: "Disclaimer",
-        content: buildDisclaimer(formData),
-      });
-    }
-    if (formData.documents.refundPolicy) {
-      docs.push({
-        title: "Refund Policy",
-        content: buildRefundPolicy(formData),
       });
     }
     setGeneratedDocs(docs);
@@ -599,8 +610,10 @@ export default function GeneratePage() {
                   <Spinner />
                   Generating Documents...
                 </>
+              ) : hasPaidDocuments ? (
+                "Continue to Payment — $19"
               ) : (
-                "Generate Documents"
+                "Generate Free Privacy Policy"
               )}
             </button>
           </div>
