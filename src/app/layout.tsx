@@ -25,6 +25,9 @@ export const metadata: Metadata = {
     "GDPR compliance",
     "website legal pages",
   ],
+  verification: {
+    google: "5bbD9TgyynvqDqMPtdhrDDpkF0T7x29y4UjNKOp8JOE",
+  },
   openGraph: {
     title: "PolicyForge - Free Privacy Policy Generator",
     description:
